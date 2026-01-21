@@ -43,13 +43,21 @@ export default function Dashboard() {
       try {
         // Fetch Reports
         const res = await fetch(`/api/reports?weekStart=${weekStart}`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Reports API Error: ${res.status} - ${text}`);
+        }
         const data = await res.json();
 
         // Fetch Projects
         const projRes = await fetch('/api/projects');
-        const projData = await projRes.json();
-        if (projData.projects) {
-          setProjects(projData.projects);
+        if (!projRes.ok) {
+          console.error("Projects API Error:", await projRes.text());
+        } else {
+          const projData = await projRes.json();
+          if (projData.projects) {
+            setProjects(projData.projects);
+          }
         }
 
         if (data.items && data.items.length > 0) {
@@ -66,7 +74,8 @@ export default function Dashboard() {
           }]);
         }
       } catch (e) {
-        console.error("Failed to fetch", e);
+        console.error("Failed to fetch data:", e);
+        // Do not crash the entire app, just log
       } finally {
         setLoading(false);
       }
