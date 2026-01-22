@@ -12,40 +12,41 @@ export async function GET(request: Request) {
 
     try {
         // 1. Try to find existing report for this week
-        const stmt = db.prepare('SELECT * FROM reports WHERE week_start = ?');
-        const items = stmt.all(weekStart);
+        const result = await db.execute({
+            sql: 'SELECT * FROM reports WHERE week_start = ?',
+            args: [weekStart]
+        });
+        const items = result.rows as unknown as any[];
 
         if (items.length > 0) {
             return NextResponse.json({ items });
         }
 
         // 2. If no items, try to find previous week's report for carryover
-        // Calculate previous week start
         const currentStart = parseISO(weekStart);
         const prevStart = subWeeks(currentStart, 1);
-        const prevStartStr = format(prevStart, 'yyyy-MM-dd'); // assuming inputs are clean yyyy-MM-dd
+        const prevStartStr = format(prevStart, 'yyyy-MM-dd');
 
-        const prevItems = stmt.all(prevStartStr);
+        const prevResult = await db.execute({
+            sql: 'SELECT * FROM reports WHERE week_start = ?',
+            args: [prevStartStr]
+        });
+        const prevItems = prevResult.rows as unknown as any[];
 
         if (prevItems.length > 0) {
-            // Carry over logic: 
-            // New Prevs = Old Currs
-            // New Currs = Empty
             const carriedOverItems = prevItems.map((item: any) => ({
-                id: crypto.randomUUID(), // New IDs
-                week_start: weekStart,   // New Date
+                id: crypto.randomUUID(),
+                week_start: weekStart,
                 division: item.division,
                 project: item.project,
-                prev_progress: item.curr_progress, // CARRY OVER!
-                curr_progress: '',                 // Reset
-                remarks: item.remarks              // Keep remarks? Maybe. Let's keep.
+                prev_progress: item.curr_progress,
+                curr_progress: '',
+                remarks: item.remarks
             }));
 
-            // Return as "draft" items (don't save yet, let frontend save)
             return NextResponse.json({ items: carriedOverItems, isDraft: true });
         }
 
-        // 3. No previous data either -> Empty
         return NextResponse.json({ items: [] });
 
     } catch (error) {
@@ -62,29 +63,30 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
         }
 
-        // Transaction to replace items for that week
-        const deleteStmt = db.prepare('DELETE FROM reports WHERE week_start = ?');
-        const insertStmt = db.prepare(`
-      INSERT INTO reports (id, week_start, division, project, prev_progress, curr_progress, remarks)
-      VALUES (@id, @week_start, @division, @project, @prev_progress, @curr_progress, @remarks)
-    `);
+        // Using batch for transaction-like atomic behavior
+        const operations = [
+            {
+                sql: 'DELETE FROM reports WHERE week_start = ?',
+                args: [weekStart]
+            },
+            ...items.map(item => ({
+                sql: `
+                    INSERT INTO reports (id, week_start, division, project, prev_progress, curr_progress, remarks)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `,
+                args: [
+                    item.id || crypto.randomUUID(),
+                    weekStart,
+                    item.division || '',
+                    item.project || '',
+                    item.prev_progress || '',
+                    item.curr_progress || '',
+                    item.remarks || ''
+                ]
+            }))
+        ];
 
-        const transaction = db.transaction((week, newItems) => {
-            deleteStmt.run(week);
-            for (const item of newItems) {
-                insertStmt.run({
-                    id: item.id || crypto.randomUUID(),
-                    week_start: week,
-                    division: item.division || '',
-                    project: item.project || '',
-                    prev_progress: item.prev_progress || '',
-                    curr_progress: item.curr_progress || '',
-                    remarks: item.remarks || ''
-                });
-            }
-        });
-
-        transaction(weekStart, items);
+        await db.batch(operations, "write");
 
         return NextResponse.json({ success: true });
     } catch (error) {
