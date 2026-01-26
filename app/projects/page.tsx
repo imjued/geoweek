@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Trash2, Loader2, Building2, User, Calendar, Edit2, X } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Loader2, Building2, User, Calendar, Edit2, X, CloudDownload } from 'lucide-react';
 
 interface Project {
     id: string;
@@ -121,6 +121,27 @@ export default function ProjectsPage() {
         setNewCode('');
     };
 
+    const handleImportProjects = async () => {
+        if (!confirm('외부 DB(gannt-j)에서 프로젝트를 가져오시겠습니까? 중복된 프로젝트는 건너뜁니다.')) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/projects/import', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(`${data.count}개의 프로젝트를 성공적으로 가져왔습니다.`);
+                fetchProjects();
+            } else {
+                alert('프로젝트 가져오기 실패: ' + (data.error || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('오류가 발생했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <main className="min-h-screen bg-neutral-50 flex flex-col items-center py-10 px-4 sm:px-8">
             <div className="w-full max-w-4xl mb-8 flex items-center gap-4">
@@ -133,6 +154,16 @@ export default function ProjectsPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-neutral-900">프로젝트 관리</h1>
                     <p className="text-neutral-500 text-sm">주간보고서에 사용할 프로젝트 목록을 관리합니다.</p>
+                </div>
+                <div className="ml-auto">
+                    <button
+                        onClick={handleImportProjects}
+                        className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+                        title="외부 DB에서 프로젝트 가져오기"
+                    >
+                        <CloudDownload size={16} />
+                        <span>가져오기</span>
+                    </button>
                 </div>
             </div>
 
