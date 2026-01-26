@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { addWeeks, format, startOfWeek, subWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Save, Download, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { addWeeks, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
+import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { generateDocx } from '@/lib/docxGenerator'; // Need to move this or re-create
-import type { ReportItem } from '@/types';
+import { useRef } from 'react';
+
 
 // Moving types here or importing
 export interface ReportItem {
@@ -17,12 +19,70 @@ export interface ReportItem {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(addWeeks(new Date(), 1));
   const [items, setItems] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [availableProjects, setAvailableProjects] = useState<{ id: string, name: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch('/api/projects')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAvailableProjects(data);
+      })
+      .catch(console.error);
+  }, []);
 
   const weekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const displayMonth = getMonth(selectedDate) + 1;
+  const displayWeek = getWeekOfMonth(selectedDate, { weekStartsOn: 1 });
+
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [reportDates, setReportDates] = useState<string[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  // Fetch Report Dates for Calendar
+  useEffect(() => {
+    if (showCalendar) {
+      fetch('/api/reports/status')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setReportDates(data);
+        })
+        .catch(console.error);
+    }
+  }, [showCalendar]);
+
+  // Calendar Logic
+  const calendarDays = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 1 })
+  });
+
+  function endOfWeek(date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) {
+    // simple helper since we didn't import endOfWeek
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = (day < (options?.weekStartsOn || 0) ? 7 : 0) + 6 - day + (options?.weekStartsOn || 0);
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  const handleDateSelect = (date: Date) => {
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    setSelectedDate(addWeeks(weekStart, 1)); // Logic in handleNext/Prev seems to imply selectedDate is +1 week ahead? 
+    // Wait, let's check existing logic:
+    // const weekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    // If selectedDate is today, startOfWeek gives this Monday.
+    // The handlePrev/Next logic uses subWeeks(d, 1).
+    // So if I pick a date, I should just set selectedDate to that date?
+    // Let's assume selectedDate is the target reference date.
+    setSelectedDate(date);
+    setShowCalendar(false);
+  };
 
   // Fetch Data
   useEffect(() => {
@@ -62,6 +122,10 @@ export default function Dashboard() {
     }
   };
 
+  const handleBackup = () => {
+    window.open('/api/backup', '_blank');
+  };
+
   const handleDownload = async () => {
     // Logic to trigger docx download
     // We need to re-implement generateDocx on client side
@@ -69,18 +133,53 @@ export default function Dashboard() {
     await generateDocx({ selectedDate, items });
   };
 
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('DB를 복원하면 기존 데이터와 병합되거나 덮어씌워질 수 있습니다. 진행하시겠습니까?')) {
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const res = await fetch('/api/backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json)
+        });
+
+        if (res.ok) {
+          alert('복원이 완료되었습니다. 페이지를 새로고침합니다.');
+          window.location.reload();
+        } else {
+          alert('복원 실패');
+        }
+      } catch (error) {
+        console.error('File parsing error', error);
+        alert('잘못된 백업 파일입니다.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
+  };
+
   // UI Handlers
-  const handlePrev = () => setSelectedDate(d => subWeeks(d, 1));
-  const handleNext = () => setSelectedDate(d => addWeeks(d, 1));
+  // UI Handlers
+  const handlePrev = () => setSelectedDate((d: Date) => subWeeks(d, 1));
+  const handleNext = () => setSelectedDate((d: Date) => addWeeks(d, 1));
 
   const updateItem = (id: string, field: keyof ReportItem, value: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+    setItems((prev: ReportItem[]) => prev.map((item: ReportItem) => item.id === id ? { ...item, [field]: value } : item));
   };
 
   const addItem = () => {
-    setItems(prev => [...prev, {
+    setItems((prev: ReportItem[]) => [...prev, {
       id: crypto.randomUUID(),
-      division: '',
+      division: '기획실',
       project: '',
       prev_progress: '',
       curr_progress: '',
@@ -89,7 +188,7 @@ export default function Dashboard() {
   };
 
   const removeItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
+    setItems((prev: ReportItem[]) => prev.filter((i: ReportItem) => i.id !== id));
   };
 
   return (
@@ -101,15 +200,19 @@ export default function Dashboard() {
           <p className="text-neutral-500 mt-1">팀 업무 진행상황 공유 및 관리</p>
         </div>
 
-        {/* Date Control */}
         <div className="flex items-center space-x-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-neutral-200">
           <button onClick={handlePrev} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600 transition">
             <ChevronLeft size={20} />
           </button>
-          <div className="text-center min-w-[140px]">
-            <div className="text-xs font-semibold text-neutral-400 uppercase tracking-widest">Week of</div>
+          <div className="text-center min-w-[140px] cursor-pointer hover:bg-neutral-50 rounded-lg px-2 py-1 transition-colors relative group" onClick={() => setShowCalendar(!showCalendar)}>
+            <div className="text-xs font-semibold text-neutral-400 uppercase tracking-widest flex items-center justify-center gap-1">
+              Week of <CalendarIcon size={10} />
+            </div>
             <div className="text-lg font-bold text-neutral-800 tabular-nums">
               {weekStart}
+            </div>
+            <div className="text-xs text-neutral-500 font-medium mt-1">
+              {displayMonth}월 {displayWeek}주차
             </div>
           </div>
           <button onClick={handleNext} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600 transition">
@@ -117,6 +220,50 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Calendar Modal */}
+      {showCalendar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowCalendar(false)}>
+          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6 w-[360px]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg"><ChevronLeft size={20} /></button>
+              <h3 className="font-bold text-lg">{format(calendarMonth, 'yyyy년 M월')}</h3>
+              <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg"><ChevronRight size={20} /></button>
+            </div>
+            <div className="grid grid-cols-7 text-center mb-2">
+              {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+                <div key={d} className="text-xs font-medium text-neutral-400 py-1">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day: Date, i: number) => {
+                const isSelected = isSameWeek(day, selectedDate, { weekStartsOn: 1 });
+                const dayString = format(startOfWeek(day, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                const hasReport = reportDates.includes(dayString);
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleDateSelect(day)}
+                    className={`
+                                        h-10 rounded-lg flex flex-col items-center justify-center relative transition-all
+                                        ${!isSameMonth(day, calendarMonth) ? 'text-neutral-300' : 'text-neutral-700'}
+                                        ${isSelected ? 'bg-neutral-900 text-white shadow-md' : 'hover:bg-neutral-100'}
+                                        ${isToday(day) && !isSelected ? 'text-blue-600 font-bold' : ''}
+                                    `}
+                  >
+                    <span className="text-sm">{format(day, 'd')}</span>
+                    {hasReport && (
+                      <div className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-green-500'}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setShowCalendar(false)} className="mt-4 w-full py-2 text-sm text-neutral-500 hover:bg-neutral-50 rounded-lg">닫기</button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Card */}
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden min-h-[600px]">
@@ -138,18 +285,47 @@ export default function Dashboard() {
               <span>저장하기</span>
             </button>
             <button
+              onClick={() => router.push('/projects')}
+              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+            >
+              <FolderKanban size={16} />
+              <span>프로젝트 관리</span>
+            </button>
+            <button
               onClick={handleDownload}
               className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
             >
               <Download size={16} />
               <span>워드 다운로드</span>
             </button>
+            <button
+              onClick={handleBackup}
+              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              title="DB 백업 다운로드"
+            >
+              <Database size={16} />
+            </button>
+            <button
+              // hidden input trigger
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              title="DB 복원"
+            >
+              <Upload size={16} />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".json"
+              onChange={handleRestoreFile}
+            />
           </div>
         </div>
 
         {/* List */}
         <div className="p-6 space-y-6">
-          {items.map((item, idx) => (
+          {items.map((item: ReportItem, idx: number) => (
             <div key={item.id} className="group relative border border-neutral-200 rounded-xl p-5 hover:border-neutral-300 transition-colors bg-white">
               {/* Item Number */}
               <div className="absolute top-4 right-4 text-xs font-bold text-neutral-300">#{idx + 1}</div>
@@ -168,12 +344,20 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-neutral-400 uppercase mb-1">Project</label>
-                    <input
+                    <select
                       value={item.project}
                       onChange={(e) => updateItem(item.id, 'project', e.target.value)}
-                      className="w-full text-sm font-medium text-neutral-800 bg-neutral-50 border-0 rounded-md p-2 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
-                      placeholder="프로젝트명"
-                    />
+                      className="w-full text-sm font-medium text-neutral-800 bg-neutral-50 border-0 rounded-md p-2 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all appearance-none"
+                    >
+                      <option value="">프로젝트 선택</option>
+                      {availableProjects.map((p: { id: string, name: string }) => (
+                        <option key={p.id} value={p.name}>{p.name}</option>
+                      ))}
+                      {/* Maintain legacy or custom values not in the list */}
+                      {item.project && !availableProjects.find((p: { id: string, name: string }) => p.name === item.project) && (
+                        <option value={item.project}>{item.project}</option>
+                      )}
+                    </select>
                   </div>
                 </div>
 

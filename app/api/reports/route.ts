@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { addWeeks, format, parseISO, subWeeks } from 'date-fns';
+import { format, parseISO, subWeeks } from 'date-fns';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -16,7 +16,15 @@ export async function GET(request: Request) {
             sql: 'SELECT * FROM reports WHERE week_start = ?',
             args: [weekStart]
         });
-        const items = result.rows as unknown as any[];
+        interface ReportRow {
+            id: string;
+            division: string;
+            project: string;
+            curr_progress: string;
+            remarks: string;
+
+        }
+        const items = result.rows as unknown as ReportRow[];
 
         if (items.length > 0) {
             return NextResponse.json({ items });
@@ -31,10 +39,10 @@ export async function GET(request: Request) {
             sql: 'SELECT * FROM reports WHERE week_start = ?',
             args: [prevStartStr]
         });
-        const prevItems = prevResult.rows as unknown as any[];
+        const prevItems = prevResult.rows as unknown as ReportRow[];
 
         if (prevItems.length > 0) {
-            const carriedOverItems = prevItems.map((item: any) => ({
+            const carriedOverItems = prevItems.map((item: ReportRow) => ({
                 id: crypto.randomUUID(),
                 week_start: weekStart,
                 division: item.division,
