@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addWeeks, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload } from 'lucide-react';
 import { generateDocx } from '@/lib/docxGenerator'; // Need to move this or re-create
 import { useRef } from 'react';
 
@@ -167,6 +167,34 @@ export default function Dashboard() {
     e.target.value = ''; // Reset input
   };
 
+  // Import Projects Handler
+  const handleImportProjects = async () => {
+    if (!confirm('외부 DB(gannt-j)에서 프로젝트를 가져오시겠습니까? 중복된 프로젝트는 건너뜁니다.')) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/projects/import', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`${data.count}개의 프로젝트를 성공적으로 가져왔습니다.`);
+        // Refresh projects list
+        fetch('/api/projects')
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data)) setAvailableProjects(data);
+          })
+          .catch(console.error);
+      } else {
+        alert('프로젝트 가져오기 실패: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // UI Handlers
   // UI Handlers
   const handlePrev = () => setSelectedDate((d: Date) => subWeeks(d, 1));
@@ -290,6 +318,14 @@ export default function Dashboard() {
             >
               <FolderKanban size={16} />
               <span>프로젝트 관리</span>
+            </button>
+            <button
+              onClick={handleImportProjects}
+              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              title="외부 DB에서 프로젝트 가져오기"
+            >
+              <CloudDownload size={16} />
+              <span>가져오기</span>
             </button>
             <button
               onClick={handleDownload}
