@@ -16,17 +16,31 @@ export async function POST() {
             authToken,
         });
 
-        // Fetch projects from external DB
-        const result = await importDb.execute('SELECT * FROM projects');
-        const externalProjects = result.rows;
+        // Fetch projects from external DB (Key Value Store)
+        const result = await importDb.execute("SELECT value FROM key_value_store WHERE key = 'gantt_projects'");
+
+        if (result.rows.length === 0) {
+            return NextResponse.json({ error: 'No projects found in external DB (key: gantt_projects)' }, { status: 404 });
+        }
+
+        const valueRow = result.rows[0];
+        const projectsJson = valueRow.value as string;
+
+        let externalProjects: any[] = [];
+        try {
+            externalProjects = JSON.parse(projectsJson);
+        } catch (e) {
+            console.error("Failed to parse projects JSON", e);
+            return NextResponse.json({ error: 'Invalid data format in external DB' }, { status: 500 });
+        }
 
         // Insert into local DB
         let importedCount = 0;
         for (const project of externalProjects) {
-            const { id, name, client, pm, period, code } = project;
+            const { id, name, startDate, endDate } = project;
+            const period = (startDate && endDate) ? `${startDate} ~ ${endDate}` : '';
 
-            // Check if project exists (optional, but good for idempotency)
-            // Assuming ID is preserved
+            // Check if project exists
             const existing = await db.execute({
                 sql: 'SELECT 1 FROM projects WHERE id = ?',
                 args: [id]
@@ -38,10 +52,10 @@ export async function POST() {
                     args: [
                         id,
                         name,
-                        client || '',
-                        pm || '',
-                        period || '',
-                        code || ''
+                        '', // client 
+                        '', // pm
+                        period,
+                        '' // code
                     ]
                 });
                 importedCount++;
