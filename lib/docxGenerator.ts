@@ -166,7 +166,7 @@ export const generateDocx = (report: WeeklyReport) => {
             },
             children: [
                 new Paragraph({
-                    children: [new TextRun({ text: titleText, size: 32, bold: true, font: "맑은 고딕" })],
+                    children: [new TextRun({ text: titleText, size: 24, bold: false, font: "맑은 고딕" })],
                     alignment: AlignmentType.LEFT,
                     spacing: { after: 300 },
                 }),
