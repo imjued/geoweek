@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle } from "docx";
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle, PageOrientation } from "docx";
 import { startOfWeek, addDays, format } from "date-fns";
 import fs from "fs";
 
@@ -155,6 +155,11 @@ const doc = new Document({
     sections: [{
         properties: {
             page: {
+                size: {
+                    orientation: PageOrientation.LANDSCAPE,
+                    width: 16838,
+                    height: 11906,
+                },
                 margin: {
                     top: 720,
                     bottom: 720,
