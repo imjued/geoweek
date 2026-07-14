@@ -179,7 +179,9 @@ const doc = new Document({
     }],
 });
 
+const division = items.length > 0 && items[0].division ? items[0].division : "기획실";
+const filename = `${year}_${month}월${weekNum}주차_${division}_주간보고자료_v1.0.docx`;
 Packer.toBuffer(doc).then((buffer) => {
-    fs.writeFileSync("d:\\Github\\geoweek\\test_output_주간보고_20260713.docx", buffer);
-    console.log("File generated successfully at d:\\Github\\geoweek\\test_output_주간보고_20260713.docx");
+    fs.writeFileSync(`d:\\Github\\geoweek\\${filename}`, buffer);
+    console.log(`File generated successfully at d:\\Github\\geoweek\\${filename}`);
 }).catch(console.error);

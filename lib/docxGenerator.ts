@@ -175,7 +175,8 @@ export const generateDocx = (report: WeeklyReport) => {
         }],
     });
 
+    const division = items.length > 0 && items[0].division ? items[0].division : "기획실";
     Packer.toBlob(doc).then((blob) => {
-        saveAs(blob, `주간보고_${format(start, "yyyyMMdd")}.docx`);
+        saveAs(blob, `${year}_${month}월${weekNum}주차_${division}_주간보고자료_v1.0.docx`);
     });
 };
