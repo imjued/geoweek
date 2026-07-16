@@ -75,7 +75,7 @@ export const generateDocx = (report: WeeklyReport) => {
                     })
                 ],
                 bullet: { level: 0 },
-                spacing: { before: 80, after: 80, line: 360 },
+                spacing: { before: 80, after: 80, line: 240 },
                 indent: { left: 288, hanging: 288 },
             })
         ) : [
@@ -88,7 +88,7 @@ export const generateDocx = (report: WeeklyReport) => {
                     })
                 ],
                 bullet: { level: 0 },
-                spacing: { before: 80, after: 80, line: 360 },
+                spacing: { before: 80, after: 80, line: 240 },
                 indent: { left: 288, hanging: 288 },
             })
         ];
