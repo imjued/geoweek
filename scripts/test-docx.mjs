@@ -37,7 +37,7 @@ const startDate = format(start, "d");
 const endMonth = format(friday, "M");
 const endDate = format(friday, "d");
 
-const titleText = `${year} 년 ${month} 월 ${weekNum} 주차 ${startMonth} 월 ${startDate} 일부터 ${endMonth} 월 ${endDate} 일`;
+const titleText = `${year}년 ${month}월 ${weekNum}주차 ${startMonth}월 ${startDate}일부터 ${endMonth}월 ${endDate}일`;
 
 const widths = [12, 18, 35, 25, 10]; // Percentage column widths
 
