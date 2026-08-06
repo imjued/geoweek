@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addWeeks, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload, Copy } from 'lucide-react';
 import { generateDocx } from '@/lib/docxGenerator'; // Need to move this or re-create
 import { useRef } from 'react';
 
@@ -311,6 +311,14 @@ export default function Dashboard() {
             >
               {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save size={16} />}
               <span>저장하기</span>
+            </button>
+            <button
+              onClick={() => router.push('/reports')}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+              title="보고서 미리보기 및 텍스트 복사"
+            >
+              <Copy size={16} />
+              <span>보고서 복사</span>
             </button>
             <button
               onClick={() => router.push('/projects')}
