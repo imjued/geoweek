@@ -431,75 +431,75 @@ export default function Dashboard() {
       {/* Main Content Card */}
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden min-h-[600px]">
         {/* Toolbar */}
-        <div className="border-b border-neutral-100 p-4 bg-white sticky top-0 z-10 flex justify-between items-center backdrop-blur-xl bg-white/80">
-          <div className="flex space-x-2">
-            <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
+        <div className="border-b border-neutral-100 p-4 bg-white sticky top-0 z-10 flex flex-wrap justify-between items-center gap-3 backdrop-blur-xl bg-white/80">
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full whitespace-nowrap shrink-0">
               {items.length} Projects
             </span>
-            {loading && <span className="flex items-center text-sm text-neutral-400"><Loader2 className="animate-spin mr-2 h-3 w-3" /> Loading...</span>}
+            {loading && <span className="flex items-center text-sm text-neutral-400 whitespace-nowrap shrink-0"><Loader2 className="animate-spin mr-2 h-3 w-3 shrink-0" /> Loading...</span>}
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center space-x-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 whitespace-nowrap shrink-0"
             >
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save size={16} />}
+              {saving ? <Loader2 className="animate-spin h-4 w-4 shrink-0" /> : <Save size={16} className="shrink-0" />}
               <span>저장하기</span>
             </button>
             <button
               onClick={() => handleImportGeoDaily('current')}
               disabled={importingDaily}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 whitespace-nowrap shrink-0"
               title="Geo Daily 주간 업무 내역을 전주 진행사항(PREVIOUS WEEK) 하단에 추가합니다"
             >
-              {importingDaily ? <Loader2 className="animate-spin h-4 w-4" /> : <FileSpreadsheet size={16} />}
+              {importingDaily ? <Loader2 className="animate-spin h-4 w-4 shrink-0" /> : <FileSpreadsheet size={16} className="shrink-0" />}
               <span>Geo Daily 불러오기</span>
             </button>
             <button
               onClick={() => router.push('/reports')}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm whitespace-nowrap shrink-0"
               title="보고서 미리보기 및 텍스트 복사"
             >
-              <Copy size={16} />
+              <Copy size={16} className="shrink-0" />
               <span>보고서 복사</span>
             </button>
             <button
               onClick={() => router.push('/projects')}
-              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0"
             >
-              <FolderKanban size={16} />
+              <FolderKanban size={16} className="shrink-0" />
               <span>프로젝트 관리</span>
             </button>
             <button
               onClick={handleImportProjects}
-              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0"
               title="외부 DB에서 프로젝트 가져오기"
             >
-              <CloudDownload size={16} />
+              <CloudDownload size={16} className="shrink-0" />
               <span>가져오기</span>
             </button>
             <button
               onClick={handleDownload}
-              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0"
             >
-              <Download size={16} />
+              <Download size={16} className="shrink-0" />
               <span>워드 다운로드</span>
             </button>
             <button
               onClick={handleBackup}
-              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              className="flex items-center justify-center p-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all shrink-0"
               title="DB 백업 다운로드"
             >
-              <Database size={16} />
+              <Database size={16} className="shrink-0" />
             </button>
             <button
               // hidden input trigger
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center space-x-2 px-4 py-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all"
+              className="flex items-center justify-center p-2 border border-neutral-200 hover:bg-neutral-50 text-neutral-700 text-sm font-medium rounded-lg transition-all shrink-0"
               title="DB 복원"
             >
-              <Upload size={16} />
+              <Upload size={16} className="shrink-0" />
             </button>
             <input
               type="file"
