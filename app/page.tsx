@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { addWeeks, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload, Copy } from 'lucide-react';
+import { addWeeks, addDays, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
+import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload, Copy, Check, Mail } from 'lucide-react';
 import { generateDocx } from '@/lib/docxGenerator'; // Need to move this or re-create
 import { useRef } from 'react';
 
@@ -36,9 +36,38 @@ export default function Dashboard() {
       .catch(console.error);
   }, []);
 
-  const weekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const displayMonth = getMonth(selectedDate) + 1;
-  const displayWeek = getWeekOfMonth(selectedDate, { weekStartsOn: 1 });
+  const weekStartDate = startOfWeek(selectedDate, { weekStartsOn: 1 });
+  const weekStart = format(weekStartDate, 'yyyy-MM-dd');
+  const thursday = addDays(weekStartDate, 3);
+  const reportYear = thursday.getFullYear();
+  const displayMonth = thursday.getMonth() + 1;
+  const displayWeek = Math.ceil(thursday.getDate() / 7);
+  const shortYear = String(reportYear).slice(-2);
+
+  // Email Copy States
+  const [recipientEmail, setRecipientEmail] = useState('sharpnoh@geostory.co.kr');
+  const [senderName, setSenderName] = useState('이재현');
+  const [earlyReason, setEarlyReason] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const divisionName = items.length > 0 && items[0].division ? items[0].division : '기획실';
+  const emailSubject = `[주간보고] ${displayMonth}월 ${displayWeek}주차 주간보고 드립니다`;
+  const docFileName = `${reportYear}_${displayMonth}월${displayWeek}주차_${divisionName}_주간보고자료_v1.0.docx`;
+  const emailBody = `안녕하십니까!! ${senderName}입니다\n\n${
+    earlyReason.trim()
+      ? `${earlyReason.trim()} '${shortYear}년 ${displayMonth}월 ${displayWeek}주차 주간보고 미리 송부드립니다`
+      : `'${shortYear}년 ${displayMonth}월 ${displayWeek}주차 주간보고 송부드립니다`
+  }\n\n감사합니다\n${senderName} 드림`;
+
+  const handleCopyText = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  };
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [reportDates, setReportDates] = useState<string[]>([]);
@@ -364,6 +393,84 @@ export default function Dashboard() {
               accept=".json"
               onChange={handleRestoreFile}
             />
+          </div>
+        </div>
+
+        {/* 주간보고 메일 발송 도우미 패널 */}
+        <div className="mx-6 mt-6 bg-blue-50/50 rounded-2xl p-5 border border-blue-100 space-y-4">
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+              <Mail size={16} className="text-blue-600" />
+              <span>주간보고 메일 발송 도우미 ({displayMonth}월 {displayWeek}주차)</span>
+            </h3>
+            <span className="text-xs text-blue-600/80 font-medium">
+              첨부파일명: <code className="bg-white/80 px-2 py-0.5 rounded border border-blue-100 font-mono">{docFileName}</code>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 받는사람 메일 주소 */}
+            <div className="bg-white p-3 rounded-xl border border-blue-100 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-neutral-400 mb-0.5">받는사람 메일 주소</span>
+                <input
+                  type="text"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  className="w-full text-sm font-semibold text-neutral-800 bg-transparent border-0 p-0 focus:ring-0 outline-none truncate font-mono"
+                />
+              </div>
+              <button
+                onClick={() => handleCopyText(recipientEmail, 'recipient')}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                {copiedField === 'recipient' ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedField === 'recipient' ? '복사됨' : '주소 복사'}</span>
+              </button>
+            </div>
+
+            {/* 메일 제목 */}
+            <div className="bg-white p-3 rounded-xl border border-blue-100 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-neutral-400 mb-0.5">메일 제목</span>
+                <div className="text-sm font-bold text-neutral-900 truncate select-all">
+                  {emailSubject}
+                </div>
+              </div>
+              <button
+                onClick={() => handleCopyText(emailSubject, 'subject')}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                {copiedField === 'subject' ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedField === 'subject' ? '복사됨' : '제목 복사'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 메일 본문 멘트 & 사유 입력 */}
+          <div className="bg-white p-4 rounded-xl border border-blue-100 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-100">
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs font-bold text-neutral-600 shrink-0">사전 발송 사유 (선택):</label>
+                <input
+                  type="text"
+                  value={earlyReason}
+                  onChange={(e) => setEarlyReason(e.target.value)}
+                  placeholder="예: 내일 병원 진료로 / 내일 연차 사용으로 (비워두면 기본 멘트)"
+                  className="flex-1 text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-neutral-800 focus:bg-white focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+              <button
+                onClick={() => handleCopyText(emailBody, 'body')}
+                className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs cursor-pointer"
+              >
+                {copiedField === 'body' ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedField === 'body' ? '본문 복사됨' : '메일 본문 복사'}</span>
+              </button>
+            </div>
+            <pre className="text-xs text-neutral-700 font-sans whitespace-pre-wrap leading-relaxed select-all bg-neutral-50/70 p-3 rounded-lg border border-neutral-100">
+              {emailBody}
+            </pre>
           </div>
         </div>
 
