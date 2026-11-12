@@ -38,7 +38,7 @@ export default function ReportsPage() {
     const shortYear = String(reportYear).slice(-2);
 
     // 메일 발송 도우미 상태
-    const [recipientEmail, setRecipientEmail] = useState('sharpnoh@geostory.co.kr');
+    const [recipientEmail, setRecipientEmail] = useState('노진관 <sharpnoh@geostory.co.kr>');
     const [senderName] = useState('이재현');
     const [earlyReason, setEarlyReason] = useState('');
     const [copiedField, setCopiedField] = useState<string | null>(null);

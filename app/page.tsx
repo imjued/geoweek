@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addWeeks, addDays, format, startOfWeek, subWeeks, getMonth, getWeekOfMonth, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload, Copy, Check, Mail } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Download, Loader2, Database, FolderKanban, Calendar as CalendarIcon, Upload, CloudDownload, Copy, Check, Mail, FileSpreadsheet } from 'lucide-react';
 import { generateDocx } from '@/lib/docxGenerator'; // Need to move this or re-create
 import { useRef } from 'react';
 
@@ -45,7 +45,7 @@ export default function Dashboard() {
   const shortYear = String(reportYear).slice(-2);
 
   // Email Copy States
-  const [recipientEmail, setRecipientEmail] = useState('sharpnoh@geostory.co.kr');
+  const [recipientEmail, setRecipientEmail] = useState('노진관 <sharpnoh@geostory.co.kr>');
   const [senderName, setSenderName] = useState('이재현');
   const [earlyReason, setEarlyReason] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -224,6 +224,112 @@ export default function Dashboard() {
     }
   };
 
+  // Geo Daily 주간 업무 내역 불러오기 (PREVIOUS WEEK 하단에 추가)
+  const [importingDaily, setImportingDaily] = useState(false);
+  const handleImportGeoDaily = async (rangeType: 'current' | 'prev' = 'current') => {
+    setImportingDaily(true);
+    try {
+      const targetStart = rangeType === 'current' ? weekStartDate : subWeeks(weekStartDate, 1);
+      const targetEnd = addDays(targetStart, 6);
+      const startStr = format(targetStart, 'yyyy-MM-dd');
+      const endStr = format(targetEnd, 'yyyy-MM-dd');
+
+      const res = await fetch(`/api/geo-daily?startDate=${startStr}&endDate=${endStr}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Geo Daily 데이터를 가져오지 못했습니다.');
+        return;
+      }
+
+      const logs: Array<{
+        id: string;
+        date: string;
+        content: string;
+        remarks?: string;
+        project_name?: string;
+      }> = data.logs || [];
+
+      // 선택한 주에 기록이 없고 현재 주차를 조회했다면 전주(startDate - 7일)도 확인 안내
+      if (logs.length === 0) {
+        if (rangeType === 'current') {
+          const prevStart = subWeeks(weekStartDate, 1);
+          const prevEnd = addDays(prevStart, 6);
+          const retryPrev = confirm(
+            `${startStr} ~ ${endStr} 기간에 작성된 Geo Daily 일지가 없습니다.\n전주(${format(prevStart, 'MM/dd')} ~ ${format(prevEnd, 'MM/dd')}) 일지를 대신 불러올까요?`
+          );
+          if (retryPrev) {
+            await handleImportGeoDaily('prev');
+          }
+        } else {
+          alert(`${startStr} ~ ${endStr} 기간에 작성된 Geo Daily 일지가 없습니다.`);
+        }
+        return;
+      }
+
+      // 프로젝트별로 그룹핑하여 (MM-dd) 업무내용 형식으로 변환
+      const groupedByProject: Record<string, string[]> = {};
+      logs.forEach((log) => {
+        const projName = (log.project_name || '일반 업무').trim();
+        if (!groupedByProject[projName]) groupedByProject[projName] = [];
+        const dateShort = log.date ? log.date.slice(5) : ''; // 'YYYY-MM-DD' -> 'MM-DD'
+        const line = `(${dateShort}) ${log.content}${log.remarks ? ` (${log.remarks})` : ''}`;
+        if (!groupedByProject[projName].includes(line)) {
+          groupedByProject[projName].push(line);
+        }
+      });
+
+      setItems((prevItems) => {
+        const updated = [...prevItems];
+        const matchedProjects = new Set<string>();
+
+        // 1. 기존 항목과 프로젝트명이 일치하면 prev_progress(PREVIOUS WEEK) 기존 내용 밑에 추가
+        for (let i = 0; i < updated.length; i++) {
+          const itemProj = (updated[i].project || '').trim();
+          if (itemProj && groupedByProject[itemProj]) {
+            matchedProjects.add(itemProj);
+            const existingLines = updated[i].prev_progress
+              ? updated[i].prev_progress.split('\n').map((l) => l.trim())
+              : [];
+            const newLines = groupedByProject[itemProj].filter(
+              (line) => !existingLines.includes(line)
+            );
+            if (newLines.length > 0) {
+              const baseText = updated[i].prev_progress.trim();
+              updated[i] = {
+                ...updated[i],
+                prev_progress: baseText
+                  ? `${baseText}\n${newLines.join('\n')}`
+                  : newLines.join('\n'),
+              };
+            }
+          }
+        }
+
+        // 2. 기존 항목에 없는 프로젝트는 새 항목으로 추가
+        Object.entries(groupedByProject).forEach(([projName, lines]) => {
+          if (!matchedProjects.has(projName)) {
+            updated.push({
+              id: crypto.randomUUID(),
+              division: updated.length > 0 && updated[0].division ? updated[0].division : '기획실',
+              project: projName,
+              prev_progress: lines.join('\n'),
+              curr_progress: '',
+              remarks: '',
+            });
+          }
+        });
+
+        return updated;
+      });
+    } catch (e) {
+      console.error('Failed to import Geo Daily logs', e);
+      alert('Geo Daily 연동 중 오류가 발생했습니다.');
+    } finally {
+      setImportingDaily(false);
+    }
+  };
+
   // UI Handlers
   // UI Handlers
   const handlePrev = () => setSelectedDate((d: Date) => subWeeks(d, 1));
@@ -340,6 +446,15 @@ export default function Dashboard() {
             >
               {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save size={16} />}
               <span>저장하기</span>
+            </button>
+            <button
+              onClick={() => handleImportGeoDaily('current')}
+              disabled={importingDaily}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50"
+              title="Geo Daily 주간 업무 내역을 전주 진행사항(PREVIOUS WEEK) 하단에 추가합니다"
+            >
+              {importingDaily ? <Loader2 className="animate-spin h-4 w-4" /> : <FileSpreadsheet size={16} />}
+              <span>Geo Daily 불러오기</span>
             </button>
             <button
               onClick={() => router.push('/reports')}
